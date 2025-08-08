@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(STUDENT)
+  timezone     String   @default("Asia/Dubai")
+  createdAt    DateTime @default(now())
+
+  assignments  Assignment[]
+  submissions  Submission[]
+  points       PointTransaction[]
+  redemptions  Redemption[]
+  streak       Streak?
+}
+
+enum Role {
+  STUDENT
+  MODERATOR
+  ADMIN
+}
+
+model Task {
+  id            String    @id @default(cuid())
+  title         String
+  description   String
+  skillTags     String    @default("") // comma-separated MVP
+  difficulty    String    @default("B1")
+  estMinutes    Int       @default(10)
+  points        Int       @default(10)
+  submissionType SubmissionType @default(TEXT)
+  creatorId     String
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+
+  assignments   Assignment[]
+}
+
+enum SubmissionType {
+  TEXT
+  AUDIO
+  FILE
+  LINK
+  QUIZ
+}
+
+model Assignment {
+  id          String   @id @default(cuid())
+  taskId      String
+  assigneeId  String
+  assignedBy  String?
+  source      AssignmentSource @default(RANDOM)
+  status      AssignmentStatus @default(NOT_STARTED)
+  dueAt       DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  task        Task     @relation(fields: [taskId], references: [id])
+  assignee    User     @relation(fields: [assigneeId], references: [id])
+  submissions Submission[]
+}
+
+enum AssignmentSource {
+  RANDOM
+  MODERATOR
+  SELF
+}
+
+enum AssignmentStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED
+  RETURNED
+  APPROVED
+  REJECTED
+}
+
+model Submission {
+  id           String   @id @default(cuid())
+  assignmentId String
+  studentId    String
+  payload      String   // JSON/text/link path
+  notes        String?
+  submittedAt  DateTime @default(now())
+  reviewedBy   String?
+  reviewNotes  String?
+  status       ReviewStatus @default(PENDING)
+  reviewedAt   DateTime?
+
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+  student      User       @relation(fields: [studentId], references: [id])
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVISE
+}
+
+model PointTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  type      PointType
+  amount    Int
+  reason    String
+  refTable  String?
+  refId     String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+enum PointType {
+  EARN
+  ADJUST
+  REDEEM
+  REVERSAL
+}
+
+model Streak {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  currentCount       Int      @default(0)
+  longestCount       Int      @default(0)
+  lastCreditedDate   DateTime?
+  freezeTokens       Int      @default(0)
+
+  user               User     @relation(fields: [userId], references: [id])
+}
+
+model Gift {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  imageUrl    String?
+  costPoints  Int
+  stock       Int      @default(0)
+  autoFulfill Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  redemptions Redemption[]
+}
+
+model Redemption {
+  id          String   @id @default(cuid())
+  giftId      String
+  userId      String
+  costPoints  Int
+  status      RedemptionStatus @default(PENDING)
+  fulfillmentData String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  actedBy     String?
+
+  gift        Gift     @relation(fields: [giftId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+enum RedemptionStatus {
+  PENDING
+  APPROVED
+  FULFILLED
+  REJECTED
+  CANCELLED
+}
